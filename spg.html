@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strong Password Generator</title>
+    <style>
+        :root {
+            --primary: #10b981;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text-main);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; padding: 20px;
+        }
+
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 { font-size: 2.2rem; margin: 0 0 10px 0; font-weight: 800; }
+        header p { color: var(--text-sub); margin: 0; }
+
+        .container { width: 100%; max-width: 600px; }
+        .block { 
+            background: var(--card-bg); border: 1px solid var(--border); 
+            border-radius: 12px; margin-bottom: 20px; padding: 24px; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
+        }
+
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        #password { font-family: monospace; font-size: 1.4rem; font-weight: 500; word-break: break-all; }
+        
+        .strength-bar { height: 4px; width: 100%; background: var(--primary); border-radius: 2px; margin-bottom: 8px; }
+        .strength-text { font-size: 0.85rem; color: var(--text-sub); }
+
+        .copy-btn { padding: 8px 16px; background: #fff; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .copy-btn:hover { background: #f8fafc; }
+
+        /* Multi-option list styling */
+        #multi-results { margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px; display: none; }
+        .option-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f8fafc; font-family: monospace; }
+
+        .length-row { display: flex; align-items: center; margin-bottom: 25px; }
+        #length-num { font-weight: bold; width: 30px; text-align: right; }
+        input[type="range"] { flex: 1; margin: 0 15px; accent-color: var(--primary); }
+
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .option-item { display: flex; align-items: center; cursor: pointer; }
+        .option-item input { width: 18px; height: 18px; margin-right: 10px; accent-color: var(--primary); }
+        .hint { color: var(--text-sub); font-size: 0.85rem; }
+
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn { padding: 14px; border-radius: 8px; border: 1px solid var(--border); background: white; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn:hover { background: #f8fafc; }
+        .btn-primary { background: #f8fafc; border-color: #cbd5e1; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Strong Password Generator</h1>
+        <p>Generate secure, randomized passwords locally in your browser.</p>
+    </header>
+
+    <div class="container">
+        <div class="block">
+            <div class="result-header">
+                <span id="password">Loading...</span>
+                <button class="copy-btn" id="copyBtn">Copy</button>
+            </div>
+            <div class="strength-bar"></div>
+            <div class="strength-text">Very strong · High entropy</div>
+
+            <div id="multi-results"></div>
+        </div>
+
+        <div class="block">
+            <div class="length-row">
+                <span>Length</span>
+                <input type="range" id="slider" min="6" max="50" value="16">
+                <span id="length-num">16</span>
+            </div>
+
+            <div class="options-grid">
+                <label class="option-item"><input type="checkbox" id="upper" checked> Uppercase <span class="hint">(A-Z)</span></label>
+                <label class="option-item"><input type="checkbox" id="lower" checked> Lowercase <span class="hint">(a-z)</span></label>
+                <label class="option-item"><input type="checkbox" id="numbers" checked> Numbers <span class="hint">(0-9)</span></label>
+                <label class="option-item"><input type="checkbox" id="symbols" checked> Symbols <span class="hint">(!@#$)</span></label>
+            </div>
+            <hr style="border:0; border-top:1px solid #eee; margin: 20px 0;">
+            <label class="option-item"><input type="checkbox" id="ambig"> Exclude ambiguous <span class="hint">(0, O, l, 1)</span></label>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn" onclick="generateSingle()">&#x21BB; Generate new</button>
+            <button class="btn btn-primary" onclick="generateFive()">Generate 5 options</button>
+        </div>
+    </div>
+
+    <script>
+        const passEl = document.getElementById('password');
+        const slider = document.getElementById('slider');
+        const numDisplay = document.getElementById('length-num');
+        const multiBox = document.getElementById('multi-results');
+
+        slider.oninput = () => {
+            numDisplay.innerText = slider.value;
+            generateSingle();
+        };
+
+        // Core logic to get a single random string
+        function createPassword() {
+            const length = +slider.value;
+            const config = {
+                u: document.getElementById('upper').checked ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' : '',
+                l: document.getElementById('lower').checked ? 'abcdefghijklmnopqrstuvwxyz' : '',
+                n: document.getElementById('numbers').checked ? '0123456789' : '',
+                s: document.getElementById('symbols').checked ? '!@#$%^&*()_+~' : ''
+            };
+            
+            let charset = config.u + config.l + config.n + config.s;
+            if (document.getElementById('ambig').checked) {
+                charset = charset.replace(/[0Ol1I]/g, '');
+            }
+
+            if (!charset) return "Select an option";
+
+            let result = '';
+            const array = new Uint32Array(length);
+            window.crypto.getRandomValues(array);
+
+            for (let i = 0; i < length; i++) {
+                result += charset.charAt(array[i] % charset.length);
+            }
+            return result;
+        }
+
+        // Action: Generate just one
+        function generateSingle() {
+            multiBox.style.display = 'none'; // Hide multi-view
+            passEl.innerText = createPassword();
+        }
+
+        // Action: Generate five
+        function generateFive() {
+            multiBox.innerHTML = '<strong>Additional Options:</strong>';
+            multiBox.style.display = 'block';
+            
+            // Set the main one first
+            passEl.innerText = createPassword();
+
+            // Create 5 extra rows
+            for (let i = 0; i < 5; i++) {
+                const p = createPassword();
+                const div = document.createElement('div');
+                div.className = 'option-row';
+                div.innerHTML = `<span>${p}</span>`;
+                multiBox.appendChild(div);
+            }
+        }
+
+        // Copy Feature
+        document.getElementById('copyBtn').onclick = () => {
+            navigator.clipboard.writeText(passEl.innerText);
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = "Copied!";
+            setTimeout(() => btn.innerText = "Copy", 1500);
+        };
+
+        // Initial Run
+        generateSingle();
+    </script>
+</body>
+</html>
